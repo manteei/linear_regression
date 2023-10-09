@@ -3,13 +3,14 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 import numpy as np
+import seaborn as sns
 from visualize import visCount, visMean, visAll, visStd, visMin, visMax
 
 # Получите статистику по датасету
 pd.set_option('display.max_columns', None)
 df = pd.read_csv('california_housing_train.csv')
 summary_stats = df.describe()
-df['synthetic'] = df['total_rooms'] / df['population']
+df['synthetic'] = df['total_bedrooms'] / df['population']
 
 #Визуализируйте статистику по датасету
 visAll(df)
@@ -24,16 +25,38 @@ visMin(plt, df)
 # Визуализация максимума
 visMax(plt, df)
 
+
 # Проведите предварительную обработку данных
 df.fillna(df.mean(), inplace=True)
+
 numeric_columns = ['longitude', 'latitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population',
                    'households', 'median_income', 'synthetic']
+# Удаляем выбросы
+for column_name in numeric_columns:
+    Q1 = df[column_name].quantile(0.25)
+    Q3 = df[column_name].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_threshold = Q1 - 1.5 * IQR
+    upper_threshold = Q3 + 1.5 * IQR
+    df = df[(df[column_name] >= lower_threshold) & (df[column_name] <= upper_threshold)]
+
+# Вычисляем корреляцию между целевой переменной и каждым признаком
+plt.figure(figsize=(12, 10), dpi=80)
+sns.heatmap(df.corr(), xticklabels=df.corr().columns, yticklabels=df.corr().columns, cmap='RdYlGn', center=0,
+            annot=True)
+plt.title('Корелляция', fontsize=22)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+plt.show()
+X = df.drop(columns=['total_rooms'])
+
+visAll(X)
 
 # Примените стандартизацию к каждому числовому признаку
 for column in numeric_columns:
-    mean = df[column].mean()
-    std = df[column].std()
-    df[column] = (df[column] - mean) / std
+    median = df[column].median()
+    range_value = df[column].max() - df[column].min()
+    df[column] = (df[column] - median) / range_value
 
 # Определите признаки (X) и целевую переменную (y)
 X = df.drop(columns=['median_house_value'])  # Признаки, исключая 'median_house_value'
@@ -60,6 +83,7 @@ for feature, coefficient in zip(X.columns, optimal_weights):
     print(f"{feature}: {coefficient}")
 print("median_house_value", optimal_weights[-1])
 
+
 # Функция для предсказания на тестовых данных
 def predict(X, weights):
     # Добавляем столбец с единицами для учёта свободного члена (w0)
@@ -67,6 +91,8 @@ def predict(X, weights):
     # Предсказываем значения
     predictions = X @ weights
     return predictions
+
+
 print("-----------------------------------------------------------------")
 y_test_no_index = pd.Series(y_test.values)
 print("Предсказание для основной модели")
@@ -78,10 +104,10 @@ print("-----------------------------------------------------------------")
 r2_set = r2_score(y_test, y_pred)
 print("Коэффициент детерминации для основной модели:", r2_set)
 
-#['longitude', 'latitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population','households', 'median_income', 'synthetic']
+# ['longitude', 'latitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population','households', 'median_income', 'synthetic']
 # Определите новые наборы признаков
 features_set1 = ['longitude', 'latitude', 'housing_median_age', 'median_income']
-features_set2 = ['synthetic', 'total_rooms', 'total_bedrooms', 'households', 'median_income']
+features_set2 = ['synthetic', 'total_bedrooms', 'households', 'median_income']
 features_set3 = ['synthetic', 'households', 'median_income', 'population']
 
 # Разделите данные на обучающий и тестовый наборы данных для каждого набора признаков
